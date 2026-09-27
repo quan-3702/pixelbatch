@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "PixelBatch - Batch Image Converter",
+  "short_name": "PixelBatch",
+  "description": "Convert, resize and compress many images at once (PNG, JPG, WebP). Works offline – your files never leave your PC.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111318",
+  "theme_color": "#4f46e5",
+  "categories": ["photo", "productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./index.html",
+      "accept": { "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"] }
+    }
+  ]
+}

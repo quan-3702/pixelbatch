@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PixelBatch – Batch Image Converter</title>
+  <meta name="description" content="Convert, resize and compress many images at once. PNG, JPG, WebP. Works offline, files never leave your PC.">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon-192.png" alt="" width="28" height="28">
+      <span>PixelBatch</span>
+    </div>
+    <span class="tag">100% offline · files never leave your PC</span>
+  </header>
+
+  <main class="layout">
+    <section class="left">
+      <label id="drop" class="drop" tabindex="0">
+        <input id="picker" type="file" accept="image/*" multiple hidden>
+        <div class="drop-inner">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          <strong>Drop images here</strong>
+          <span>or click to choose · Ctrl+V to paste</span>
+        </div>
+      </label>
+
+      <div class="listbar">
+        <span id="count">No images yet</span>
+        <button id="clear" class="ghost" disabled>Clear all</button>
+      </div>
+      <ul id="list" class="list"></ul>
+    </section>
+
+    <aside class="panel">
+      <h2>Output settings</h2>
+
+      <label class="field">Format
+        <select id="format">
+          <option value="image/jpeg">JPG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp" selected>WebP</option>
+        </select>
+      </label>
+
+      <label class="field" id="qualityField">Quality <output id="qualityOut">85</output>
+        <input id="quality" type="range" min="10" max="100" value="85">
+      </label>
+
+      <label class="field">Resize
+        <select id="resizeMode">
+          <option value="none">Keep original size</option>
+          <option value="width">Max width (px)</option>
+          <option value="height">Max height (px)</option>
+          <option value="percent">Scale (%)</option>
+        </select>
+      </label>
+      <label class="field" id="resizeValueField" hidden>Value
+        <input id="resizeValue" type="number" min="1" value="1920">
+      </label>
+
+      <label class="field" id="bgField">Background for transparent areas
+        <input id="bg" type="color" value="#ffffff">
+      </label>
+
+      <label class="field">File name suffix
+        <input id="suffix" type="text" value="" placeholder="e.g. _small">
+      </label>
+
+      <button id="convert" class="primary" disabled>Convert all</button>
+      <button id="zip" class="secondary" disabled>Download all (.zip)</button>
+
+      <div id="summary" class="summary" hidden></div>
+    </aside>
+  </main>
+
+  <script src="jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
