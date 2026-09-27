@@ -1,6 +1,6 @@
 const CACHE = 'pixelbatch-v1';
 const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'jszip.min.js', 'manifest.json',
-  'icons/icon-192.png', 'icons/icon-512.png'];
+  'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
