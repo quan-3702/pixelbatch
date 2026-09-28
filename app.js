@@ -30,7 +30,133 @@ function settings() {
     anchor: $('anchor').value,
     bg: $('bg').value,
     pattern: $('pattern').value.trim() || '{name}',
+    wm: {
+      text: $('wmText').value.trim(),
+      pos: $('wmPos').value,
+      color: $('wmColor').value,
+      size: Number($('wmSize').value) / 100,
+      opacity: Number($('wmOpacity').value) / 100,
+    },
   };
+}
+
+// ---------- Pro (Microsoft Store add-on via Digital Goods API) ----------
+const FREE_LIMIT = 20;
+const STORE_BILLING = 'https://store.microsoft.com/billing';
+const PRO_SKU = 'pixelbatch_pro';
+const PRO_IDS = [PRO_SKU, '9NJLTV15RX14']; // product ID or Store ID, whichever the Store reports
+let proAvailable = false;
+let proSku = PRO_SKU; // Pro limits apply only when the Store actually sells the add-on
+const unlocked = () => isPro || !proAvailable;
+const STORE_URL = 'https://apps.microsoft.com/detail/9P25KDSFDB0N';
+let isPro = false;
+try { isPro = localStorage.getItem('pixelbatch-pro') === '1'; } catch (_) {}
+
+async function billing() {
+  if (!('getDigitalGoodsService' in window)) return null;
+  try { return await window.getDigitalGoodsService(STORE_BILLING); } catch (_) { return null; }
+}
+
+function setPro(v) {
+  isPro = v;
+  try { localStorage.setItem('pixelbatch-pro', v ? '1' : '0'); } catch (_) {}
+  document.body.classList.toggle('is-pro', v);
+  const b = $('proBtn');
+  b.textContent = v ? '★ Pro' : '★ Get Pro';
+  b.classList.toggle('is-pro', v);
+  b.hidden = !proAvailable && !v;
+  document.body.classList.toggle('pro-off', !proAvailable && !v);
+}
+
+async function checkPro() {
+  const svc = await billing();
+  if (!svc) return false;
+  try {
+    const details = await svc.getDetails(PRO_IDS).catch(() => []);
+    proAvailable = details.length > 0;
+    if (details[0]) proSku = details[0].itemId;
+    const list = await svc.listPurchases();
+    const owned = list.some((p) => PRO_IDS.includes(p.itemId));
+    setPro(owned);
+    return owned;
+  } catch (_) { return isPro; }
+}
+
+function proMessage(text) {
+  const m = $('proMsg');
+  m.hidden = !text; m.textContent = text || '';
+}
+
+async function openPro(reason) {
+  proMessage(reason || '');
+  const svc = await billing();
+  if (!svc) {
+    $('buyBtn').textContent = 'Get PixelBatch on Microsoft Store';
+    $('restoreBtn').hidden = true;
+    if (!reason) proMessage('Pro is unlocked inside the PixelBatch app installed from Microsoft Store.');
+  } else {
+    $('restoreBtn').hidden = false;
+    try {
+      const [d] = await svc.getDetails([proSku]);
+      const price = d && d.price ? new Intl.NumberFormat(undefined, { style: 'currency', currency: d.price.currency }).format(Number(d.price.value)) : '';
+      $('buyBtn').textContent = price ? `Unlock Pro – ${price}` : 'Unlock Pro';
+    } catch (_) { $('buyBtn').textContent = 'Unlock Pro'; }
+  }
+  if (!$('proDialog').open) $('proDialog').showModal();
+}
+
+async function buyPro() {
+  const svc = await billing();
+  if (!svc) { window.open(STORE_URL, '_blank'); return; }
+  const methods = [{ supportedMethods: STORE_BILLING, data: { sku: proSku } }];
+  try {
+    let req;
+    try { req = new PaymentRequest(methods); }
+    catch (_) { req = new PaymentRequest(methods, { total: { label: 'Total', amount: { currency: 'USD', value: '0' } } }); }
+    const res = await req.show();
+    await res.complete('success');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // user closed the purchase window
+    proMessage('Purchase could not be completed: ' + (e.message || e));
+    return;
+  }
+  if (await checkPro()) {
+    proMessage('Thank you! Pro is unlocked. ★');
+    setTimeout(() => $('proDialog').close(), 1500);
+  }
+}
+
+// Returns true if the user may continue; otherwise opens the Pro dialog
+function needsPro(s) {
+  if (unlocked()) return false;
+  const used = [];
+  if (s.wm.text) used.push('watermark');
+  if (s.pattern !== '{name}') used.push('batch rename');
+  if (!used.length) return false;
+  openPro(`${used.join(' and ')} ${used.length > 1 ? 'are' : 'is a'} Pro feature${used.length > 1 ? 's' : ''}. Unlock Pro, or clear ${used.length > 1 ? 'them' : 'it'} to continue for free.`);
+  return true;
+}
+
+function drawWatermark(ctx, w, h, wm) {
+  const fs = Math.max(10, Math.round(w * wm.size));
+  ctx.save();
+  ctx.globalAlpha = wm.opacity;
+  ctx.font = `600 ${fs}px "Segoe UI", system-ui, sans-serif`;
+  ctx.fillStyle = wm.color;
+  ctx.shadowColor = wm.color === '#ffffff' ? 'rgba(0,0,0,.45)' : 'rgba(255,255,255,.45)';
+  ctx.shadowBlur = Math.max(2, fs / 8);
+  const tw = ctx.measureText(wm.text).width, m = Math.round(w * 0.025);
+  ctx.textBaseline = 'middle';
+  if (wm.pos === 'tile') {
+    ctx.translate(w / 2, h / 2); ctx.rotate(-Math.PI / 6);
+    const stepX = tw + fs * 3, stepY = fs * 4, R = Math.hypot(w, h);
+    for (let y = -R; y < R; y += stepY) for (let x = -R; x < R; x += stepX) ctx.fillText(wm.text, x + ((y / stepY) % 2 ? stepX / 2 : 0), y);
+  } else {
+    const x = { tl: m, bl: m, tr: w - tw - m, br: w - tw - m, c: (w - tw) / 2 }[wm.pos];
+    const y = { tl: m + fs / 2, tr: m + fs / 2, bl: h - m - fs / 2, br: h - m - fs / 2, c: h / 2 }[wm.pos];
+    ctx.fillText(wm.text, x, y);
+  }
+  ctx.restore();
 }
 
 // ---------- HEIC support (decoder is loaded only when needed, then cached for offline use) ----------
@@ -108,6 +234,7 @@ function draw(bmp, g, s, scale = 1) {
   if (s.type === 'image/jpeg') { ctx.fillStyle = s.bg; ctx.fillRect(0, 0, w, h); }
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(bmp, g.sx, g.sy, g.sw, g.sh, 0, 0, w, h);
+  if (s.wm.text && unlocked()) drawWatermark(ctx, w, h, s.wm);
   return c;
 }
 
@@ -232,15 +359,19 @@ function render() {
 
 async function convertAll() {
   const s = settings();
+  if (needsPro(s)) return;
   const btn = $('convert');
   btn.disabled = true;
   let before = 0, after = 0, i = 0;
+  const limit = unlocked() ? items.length : Math.min(items.length, FREE_LIMIT);
   for (const it of items) {
-    btn.textContent = `Converting ${i + 1}/${items.length}…`;
+    if (i >= limit) { it.out = null; it.error = `Free version converts ${FREE_LIMIT} images at a time – get Pro for unlimited`; i++; continue; }
+    btn.textContent = `Converting ${i + 1}/${limit}…`;
     try { await convertOne(it, i, s); before += it.file.size; after += it.out.size; }
     catch (e) { it.error = e.message || 'Failed'; it.out = null; }
     i++;
   }
+  if (items.length > limit) setTimeout(() => openPro(`You added ${items.length} images. The free version converts ${FREE_LIMIT} at a time.`), 300);
   btn.textContent = 'Convert all';
   render();
   const ok = items.filter((x) => x.out).length;
@@ -262,6 +393,7 @@ async function downloadZip() {
 }
 
 async function saveToFolder() {
+  if (!unlocked()) { openPro('Saving straight to a folder is a Pro feature. The free version can download a ZIP.'); return; }
   let dir;
   try { dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'pixelbatch-out' }); }
   catch (_) { return; } // user cancelled
@@ -336,14 +468,30 @@ $('clear').addEventListener('click', () => {
   items.length = 0; $('summary').hidden = true; render();
 });
 
+// Pro UI
+$('proBtn').addEventListener('click', () => { if (!isPro) openPro(); });
+$('buyBtn').addEventListener('click', buyPro);
+$('restoreBtn').addEventListener('click', async () => {
+  proMessage('Checking your purchases…');
+  proMessage((await checkPro()) ? 'Pro restored. ★' : 'No Pro purchase found on this Microsoft account.');
+});
+$('closePro').addEventListener('click', () => $('proDialog').close());
+const syncWm = () => { $('wmOptions').hidden = !$('wmText').value.trim(); };
+$('wmText').addEventListener('input', syncWm);
+[['wmSize', 'wmSizeOut'], ['wmOpacity', 'wmOpacityOut']].forEach(([i, o]) =>
+  $(i).addEventListener('input', () => { $(o).textContent = $(i).value; }));
+setPro(isPro);
+checkPro();
+
 // Remember settings between sessions
 const KEYS = ['format', 'compressMode', 'quality', 'targetKB', 'resizeMode', 'resizeValue', 'ratio',
-  'preset', 'exactW', 'exactH', 'anchor', 'bg', 'pattern'];
+  'preset', 'exactW', 'exactH', 'anchor', 'bg', 'pattern', 'wmText', 'wmPos', 'wmColor', 'wmSize', 'wmOpacity'];
 try {
   const saved = JSON.parse(localStorage.getItem('pixelbatch-settings') || '{}');
   KEYS.forEach((k) => { if (saved[k] != null) $(k).value = saved[k]; });
   $('qualityOut').textContent = $('quality').value; syncFields();
 } catch (_) {}
+$('wmSizeOut').textContent = $('wmSize').value; $('wmOpacityOut').textContent = $('wmOpacity').value; syncWm();
 KEYS.forEach((k) => $(k).addEventListener('change', () => {
   try { localStorage.setItem('pixelbatch-settings', JSON.stringify(Object.fromEntries(KEYS.map((x) => [x, $(x).value])))); } catch (_) {}
 }));

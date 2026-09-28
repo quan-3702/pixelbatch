@@ -16,8 +16,29 @@
       <img src="icon-192.png" alt="" width="28" height="28">
       <span>PixelBatch</span>
     </div>
-    <span class="tag">100% offline · files never leave your PC · EXIF/GPS removed</span>
+    <div class="top-right">
+      <span class="tag">100% offline · files never leave your PC · EXIF/GPS removed</span>
+      <button id="proBtn" class="pro-btn">★ Get Pro</button>
+    </div>
   </header>
+
+  <dialog id="proDialog" class="pro-dialog">
+    <h2>PixelBatch Pro</h2>
+    <p class="muted">One-time purchase. Yours forever on this Microsoft account.</p>
+    <ul class="pro-list">
+      <li><strong>Unlimited</strong> images per batch <span class="muted">(Free: 20)</span></li>
+      <li><strong>Save to folder</strong> directly, no ZIP</li>
+      <li><strong>Batch rename</strong> with patterns like <code>product-{n}</code></li>
+      <li><strong>Watermark</strong> your photos with text</li>
+      <li>Support an independent developer ❤</li>
+    </ul>
+    <p id="proMsg" class="pro-msg" hidden></p>
+    <div class="pro-actions">
+      <button id="buyBtn" class="primary">Unlock Pro</button>
+      <button id="restoreBtn" class="ghost">Restore purchase</button>
+      <button id="closePro" class="ghost">Not now</button>
+    </div>
+  </dialog>
 
   <main class="layout">
     <section class="left">
@@ -120,13 +141,39 @@
         <input id="bg" type="color" value="#ffffff">
       </label>
 
-      <label class="field">File names
+      <label class="field">Watermark <span class="badge">PRO</span>
+        <input id="wmText" type="text" value="" placeholder="e.g. © My Shop – leave empty for none">
+      </label>
+      <div class="field" id="wmOptions" hidden>
+        <div class="row">
+          <select id="wmPos" aria-label="Position">
+            <option value="br" selected>Bottom right</option>
+            <option value="bl">Bottom left</option>
+            <option value="tr">Top right</option>
+            <option value="tl">Top left</option>
+            <option value="c">Center</option>
+            <option value="tile">Tiled (repeat)</option>
+          </select>
+          <select id="wmColor" aria-label="Color">
+            <option value="#ffffff" selected>White</option>
+            <option value="#000000">Black</option>
+          </select>
+        </div>
+        <label class="sub">Size <output id="wmSizeOut">4</output>%
+          <input id="wmSize" type="range" min="2" max="12" value="4">
+        </label>
+        <label class="sub">Opacity <output id="wmOpacityOut">60</output>%
+          <input id="wmOpacity" type="range" min="10" max="100" value="60">
+        </label>
+      </div>
+
+      <label class="field">File names <span class="badge">PRO</span>
         <input id="pattern" type="text" value="{name}" placeholder="{name}">
         <small class="hint">Use <code>{name}</code> = original name, <code>{n}</code> = 001, 002… e.g. <code>product-{n}</code></small>
       </label>
 
       <button id="convert" class="primary" disabled>Convert all</button>
-      <button id="saveFolder" class="secondary" disabled>Save to folder…</button>
+      <button id="saveFolder" class="secondary" disabled>Save to folder… <span class="badge">PRO</span></button>
       <button id="zip" class="secondary" disabled>Download all (.zip)</button>
 
       <div id="summary" class="summary" hidden></div>
