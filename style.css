@@ -47,3 +47,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .ghost { background: transparent; color: var(--muted); border-color: var(--line); padding: 4px 10px; font-size: 12px; }
 .icon { background: transparent; border: 1px solid var(--line); color: var(--text); padding: 5px 9px; font-size: 12px; }
 .summary { background: var(--accent-2); border-radius: 8px; padding: 10px; font-size: 13px; }
+
+.row { display: flex; align-items: center; gap: 6px; }
+.row input { flex: 1; min-width: 0; }
+.field select + .row { margin-top: 6px; }
+div.field[hidden] { display: none; }
+.hint { color: var(--muted); font-weight: 400; font-size: 12px; }
+.hint code { background: var(--bg); border-radius: 4px; padding: 0 4px; }
+.item .meta .warn { color: #f79009; }

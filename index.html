@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PixelBatch – Batch Image Converter</title>
-  <meta name="description" content="Convert, resize and compress many images at once. PNG, JPG, WebP. Works offline, files never leave your PC.">
+  <meta name="description" content="Convert, resize, crop and compress many images at once. HEIC, PNG, JPG, WebP. Compress to a target size. Works offline, files never leave your PC.">
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon-192.png">
@@ -16,17 +16,17 @@
       <img src="icon-192.png" alt="" width="28" height="28">
       <span>PixelBatch</span>
     </div>
-    <span class="tag">100% offline · files never leave your PC</span>
+    <span class="tag">100% offline · files never leave your PC · EXIF/GPS removed</span>
   </header>
 
   <main class="layout">
     <section class="left">
       <label id="drop" class="drop" tabindex="0">
-        <input id="picker" type="file" accept="image/*" multiple hidden>
+        <input id="picker" type="file" accept="image/*,.heic,.heif" multiple hidden>
         <div class="drop-inner">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           <strong>Drop images here</strong>
-          <span>or click to choose · Ctrl+V to paste</span>
+          <span>or click to choose · Ctrl+V to paste · JPG, PNG, WebP, HEIC (iPhone), GIF, BMP</span>
         </div>
       </label>
 
@@ -48,31 +48,85 @@
         </select>
       </label>
 
+      <label class="field">Compression
+        <select id="compressMode">
+          <option value="quality" selected>By quality</option>
+          <option value="target">Max file size (KB)</option>
+        </select>
+      </label>
       <label class="field" id="qualityField">Quality <output id="qualityOut">85</output>
         <input id="quality" type="range" min="10" max="100" value="85">
       </label>
+      <label class="field" id="targetField" hidden>Each file under (KB)
+        <input id="targetKB" type="number" min="5" value="200">
+      </label>
 
-      <label class="field">Resize
+      <label class="field">Size &amp; crop
         <select id="resizeMode">
           <option value="none">Keep original size</option>
           <option value="width">Max width (px)</option>
           <option value="height">Max height (px)</option>
           <option value="percent">Scale (%)</option>
+          <option value="ratio">Crop to aspect ratio</option>
+          <option value="exact">Exact size (crop to fill)</option>
         </select>
       </label>
       <label class="field" id="resizeValueField" hidden>Value
         <input id="resizeValue" type="number" min="1" value="1920">
+      </label>
+      <label class="field" id="ratioField" hidden>Aspect ratio
+        <select id="ratio">
+          <option value="1:1">1:1 Square</option>
+          <option value="4:3">4:3</option>
+          <option value="3:4">3:4 Portrait</option>
+          <option value="3:2">3:2</option>
+          <option value="2:3">2:3 Portrait</option>
+          <option value="16:9">16:9 Widescreen</option>
+          <option value="9:16">9:16 Story</option>
+          <option value="4:5">4:5 Instagram portrait</option>
+        </select>
+      </label>
+      <div class="field" id="exactField" hidden>
+        <span>Preset</span>
+        <select id="preset">
+          <option value="">Custom…</option>
+          <option value="800x800">Shopee / Lazada product 800×800</option>
+          <option value="1080x1080">Instagram post 1080×1080</option>
+          <option value="1080x1350">Instagram portrait 1080×1350</option>
+          <option value="1080x1920">Story / TikTok 1080×1920</option>
+          <option value="1200x630">Facebook link 1200×630</option>
+          <option value="820x312">Facebook cover 820×312</option>
+          <option value="1280x720">YouTube thumbnail 1280×720</option>
+          <option value="600x800">ID photo 3×4 (600×800)</option>
+          <option value="800x1200">ID photo 4×6 (800×1200)</option>
+        </select>
+        <div class="row">
+          <input id="exactW" type="number" min="1" value="800" aria-label="Width">
+          <span>×</span>
+          <input id="exactH" type="number" min="1" value="800" aria-label="Height">
+        </div>
+      </div>
+      <label class="field" id="anchorField" hidden>Crop position
+        <select id="anchor">
+          <option value="center" selected>Center</option>
+          <option value="top">Top</option>
+          <option value="bottom">Bottom</option>
+          <option value="left">Left</option>
+          <option value="right">Right</option>
+        </select>
       </label>
 
       <label class="field" id="bgField">Background for transparent areas
         <input id="bg" type="color" value="#ffffff">
       </label>
 
-      <label class="field">File name suffix
-        <input id="suffix" type="text" value="" placeholder="e.g. _small">
+      <label class="field">File names
+        <input id="pattern" type="text" value="{name}" placeholder="{name}">
+        <small class="hint">Use <code>{name}</code> = original name, <code>{n}</code> = 001, 002… e.g. <code>product-{n}</code></small>
       </label>
 
       <button id="convert" class="primary" disabled>Convert all</button>
+      <button id="saveFolder" class="secondary" disabled>Save to folder…</button>
       <button id="zip" class="secondary" disabled>Download all (.zip)</button>
 
       <div id="summary" class="summary" hidden></div>
