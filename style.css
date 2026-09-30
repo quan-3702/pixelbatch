@@ -71,3 +71,7 @@ body.is-pro .badge { display: none; }
 .pro-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .pro-msg { background: var(--accent-2); border-radius: 8px; padding: 10px; font-size: 13px; }
 body.pro-off .badge { display: none; }
+
+.promo { display: flex; gap: 10px; align-items: center; margin-top: 4px; padding: 10px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 12px; text-decoration: none; }
+.promo strong { color: var(--text); font-size: 13px; }
+.promo:hover { border-color: var(--accent); }
