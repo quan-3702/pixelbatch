@@ -1,10 +1,10 @@
-const CACHE = 'pixelbatch-v4';
+const CACHE = 'pixelbatch-v5';
 const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'jszip.min.js', 'manifest.json',
   'icon-192.png', 'icon-512.png'];
 const RUNTIME = /heic2any/; // HEIC decoder from CDN: cached after first use so it works offline
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
