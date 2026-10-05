@@ -1,5 +1,5 @@
-const CACHE = 'pixelbatch-v5';
-const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'jszip.min.js', 'manifest.json',
+const CACHE = 'pixelbatch-v6';
+const ASSETS = ['./', 'index.html', 'help.html', 'style.css', 'app.js', 'jszip.min.js', 'manifest.json',
   'icon-192.png', 'icon-512.png'];
 const RUNTIME = /heic2any/; // HEIC decoder from CDN: cached after first use so it works offline
 
