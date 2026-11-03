@@ -49,7 +49,7 @@ const STORE_BILLING = 'https://store.microsoft.com/billing';
 const PRO_SKU = 'pixelbatch_pro';
 const PRO_IDS = [PRO_SKU, '9NJLTV15RX14']; // product ID or Store ID, whichever the Store reports
 let proAvailable = false;
-try { if ('getDigitalGoodsService' in window && localStorage.getItem('pixelbatch-proavail') === '1') proAvailable = true; } catch (_) {} // keep Pro limits when offline
+proAvailable = true; // owner's rule: Pro is never free – free limits apply everywhere (website, Store, offline) until Pro is bought
 let proSku = PRO_SKU; // Pro limits apply only when the Store actually sells the add-on
 const unlocked = () => isPro || !proAvailable;
 const STORE_URL = 'https://apps.microsoft.com/detail/9P25KDSFDB0N';
@@ -85,7 +85,6 @@ async function checkPro() {
   if (!svc) return false;
   try {
     const details = await svc.getDetails(PRO_IDS).catch(() => []);
-    if (details.length) { proAvailable = true; try { localStorage.setItem('pixelbatch-proavail', '1'); } catch (_) {} }
     if (details[0]) proSku = details[0].itemId;
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
@@ -111,6 +110,7 @@ async function openPro(reason) {
     $('restoreBtn').hidden = false;
     try {
       const [d] = await svc.getDetails([proSku]);
+      if (!d) proMessage((reason ? reason + ' ' : '') + 'Pro is being added to the Microsoft Store and will be on sale very soon – please check again in a day or two.');
       const price = d && d.price ? new Intl.NumberFormat(undefined, { style: 'currency', currency: d.price.currency }).format(Number(d.price.value)) : '';
       $('buyBtn').textContent = price ? `Unlock Pro – ${price}` : 'Unlock Pro';
     } catch (_) { $('buyBtn').textContent = 'Unlock Pro'; }
