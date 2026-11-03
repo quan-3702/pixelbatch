@@ -7,6 +7,9 @@ const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const HEIC_LIB = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
 const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><rect width="52" height="52" fill="#8884"/><text x="26" y="30" font-size="10" text-anchor="middle" fill="#888" font-family="sans-serif">HEIC</text></svg>');
 
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let busy = false; // a conversion or folder save is running
+
 function fmtBytes(n) {
   if (n < 1024) return n + ' B';
   if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
@@ -46,6 +49,7 @@ const STORE_BILLING = 'https://store.microsoft.com/billing';
 const PRO_SKU = 'pixelbatch_pro';
 const PRO_IDS = [PRO_SKU, '9NJLTV15RX14']; // product ID or Store ID, whichever the Store reports
 let proAvailable = false;
+try { if ('getDigitalGoodsService' in window && localStorage.getItem('pixelbatch-proavail') === '1') proAvailable = true; } catch (_) {} // keep Pro limits when offline
 let proSku = PRO_SKU; // Pro limits apply only when the Store actually sells the add-on
 const unlocked = () => isPro || !proAvailable;
 const STORE_URL = 'https://apps.microsoft.com/detail/9P25KDSFDB0N';
@@ -68,17 +72,26 @@ function setPro(v) {
   document.body.classList.toggle('pro-off', !proAvailable && !v);
 }
 
+async function checkProAfterBuy() {
+  for (let i = 0; i < 6; i++) {
+    if (await checkPro()) return true;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  proMessage('Thank you! If Pro is not unlocked within a minute, click “Restore purchase”.');
+  return false;
+}
 async function checkPro() {
   const svc = await billing();
   if (!svc) return false;
   try {
     const details = await svc.getDetails(PRO_IDS).catch(() => []);
-    proAvailable = details.length > 0;
+    if (details.length) { proAvailable = true; try { localStorage.setItem('pixelbatch-proavail', '1'); } catch (_) {} }
     if (details[0]) proSku = details[0].itemId;
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
-    setPro(owned);
-    return owned;
+    if (owned || details.length) { setPro(owned); return owned; }
+    setPro(isPro); // Store did not answer (offline): keep what we knew
+    return isPro;
   } catch (_) { return isPro; }
 }
 
@@ -120,7 +133,7 @@ async function buyPro() {
     proMessage('Purchase could not be completed: ' + (e.message || e));
     return;
   }
-  if (await checkPro()) {
+  if (await checkProAfterBuy()) {
     proMessage('Thank you! Pro is unlocked. ★');
     setTimeout(() => $('proDialog').close(), 1500);
   }
@@ -133,7 +146,8 @@ function needsPro(s) {
   if (s.wm.text) used.push('watermark');
   if (s.pattern !== '{name}') used.push('batch rename');
   if (!used.length) return false;
-  openPro(`${used.join(' and ')} ${used.length > 1 ? 'are' : 'is a'} Pro feature${used.length > 1 ? 's' : ''}. Unlock Pro, or clear ${used.length > 1 ? 'them' : 'it'} to continue for free.`);
+  const what = used.join(' and ');
+  openPro(`${what[0].toUpperCase() + what.slice(1)} ${used.length > 1 ? 'are' : 'is a'} Pro feature${used.length > 1 ? 's' : ''}. Unlock Pro, or clear ${used.length > 1 ? 'them' : 'it'} to continue for free.`);
   return true;
 }
 
@@ -326,7 +340,7 @@ function render() {
     const li = document.createElement('li');
     li.className = 'item';
     let meta = fmtBytes(it.file.size);
-    if (it.error) meta += ` · <span class="err">${it.error}</span>`;
+    if (it.error) meta += ` · <span class="err">${esc(it.error)}</span>`;
     else if (it.out) {
       const pct = Math.round((1 - it.out.size / it.file.size) * 100);
       meta += ` → ${fmtBytes(it.out.size)} · ${it.dims} ` +
@@ -352,28 +366,30 @@ function render() {
   const done = items.some((i) => i.out);
   $('count').textContent = items.length ? `${items.length} image${items.length > 1 ? 's' : ''}` : 'No images yet';
   $('clear').disabled = !items.length;
-  $('convert').disabled = !items.length;
-  $('zip').disabled = !done;
-  $('saveFolder').disabled = !done;
+  $('convert').disabled = !items.length || busy;
+  $('zip').disabled = !done || busy;
+  $('saveFolder').disabled = !done || busy;
+  $('clear').disabled = !items.length || busy;
 }
 
 async function convertAll() {
   const s = settings();
   if (needsPro(s)) return;
   const btn = $('convert');
-  btn.disabled = true;
+  btn.disabled = true; busy = true; render();
   let before = 0, after = 0, i = 0;
-  const limit = unlocked() ? items.length : Math.min(items.length, FREE_LIMIT);
-  for (const it of items) {
+  const batch = items.slice(); // a copy: removing or adding images during the run does not skip any
+  const limit = unlocked() ? batch.length : Math.min(batch.length, FREE_LIMIT);
+  for (const it of batch) {
     if (i >= limit) { it.out = null; it.error = `Free version converts ${FREE_LIMIT} images at a time – get Pro for unlimited`; i++; continue; }
     btn.textContent = `Converting ${i + 1}/${limit}…`;
     try { await convertOne(it, i, s); before += it.file.size; after += it.out.size; }
     catch (e) { it.error = e.message || 'Failed'; it.out = null; }
     i++;
   }
-  if (items.length > limit) setTimeout(() => openPro(`You added ${items.length} images. The free version converts ${FREE_LIMIT} at a time.`), 300);
+  if (batch.length > limit) setTimeout(() => openPro(`You added ${batch.length} images. The free version converts ${FREE_LIMIT} at a time.`), 300);
   btn.textContent = 'Convert all';
-  render();
+  busy = false; render();
   const ok = items.filter((x) => x.out).length;
   const warn = items.filter((x) => x.warn).length;
   const sum = $('summary');
@@ -398,26 +414,28 @@ async function saveToFolder() {
   try { dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'pixelbatch-out' }); }
   catch (_) { return; } // user cancelled
   const btn = $('saveFolder');
-  btn.disabled = true;
-  let saved = 0;
-  for (const { item, name } of uniqueNames()) {
-    let finalName = name, n = 1;
-    // never overwrite existing files in the folder
-    while (true) {
-      try { await dir.getFileHandle(finalName); finalName = name.replace(/(\.\w+)$/, ` (${n++})$1`); }
-      catch (_) { break; }
+  btn.disabled = true; busy = true;
+  let saved = 0, failed = '';
+  try {
+    for (const { item, name } of uniqueNames()) {
+      let finalName = name, n = 1;
+      // never overwrite existing files in the folder
+      while (true) {
+        try { await dir.getFileHandle(finalName); finalName = name.replace(/(\.\w+)$/, ` (${n++})$1`); }
+        catch (_) { break; }
+      }
+      btn.textContent = `Saving ${saved + 1}…`;
+      const fh = await dir.getFileHandle(finalName, { create: true });
+      const w = await fh.createWritable();
+      await w.write(item.out); await w.close();
+      saved++;
     }
-    btn.textContent = `Saving ${saved + 1}…`;
-    const fh = await dir.getFileHandle(finalName, { create: true });
-    const w = await fh.createWritable();
-    await w.write(item.out); await w.close();
-    saved++;
-  }
-  btn.textContent = 'Save to folder…';
-  btn.disabled = false;
+  } catch (e) { failed = (e && e.message) || 'The folder could not be written to.'; }
+  btn.innerHTML = 'Save to folder… <span class="badge">PRO</span>';
+  busy = false; render();
   const sum = $('summary');
   sum.hidden = false;
-  sum.innerHTML = `Saved <strong>${saved}</strong> file(s) to folder “${dir.name}”.`;
+  sum.innerHTML = `Saved <strong>${saved}</strong> file(s) to folder “${esc(dir.name)}”.` + (failed ? `<br><span class="err">Stopped: ${esc(failed)}</span>` : '');
 }
 
 // --- Wire up UI ---
