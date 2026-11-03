@@ -54,7 +54,14 @@ let proSku = PRO_SKU; // Pro limits apply only when the Store actually sells the
 const unlocked = () => isPro || !proAvailable;
 const STORE_URL = 'https://apps.microsoft.com/detail/9P25KDSFDB0N';
 let isPro = false;
-try { isPro = localStorage.getItem('pixelbatch-pro') === '1'; } catch (_) {}
+try { // website: never trust the cache (Pro is bought in the Store app); Store app: trust it only if the Store confirmed it in the last 30 days
+  if ('getDigitalGoodsService' in window && localStorage.getItem('pixelbatch-pro') === '1') {
+    const ok = localStorage.getItem('pixelbatch-pro-ok');
+    if (ok === null) localStorage.setItem('pixelbatch-pro-ok', String(Date.now())); // saved by an older version: counts as confirmed now, once
+    const t = ok === null ? Date.now() : Number(ok);
+    isPro = t > 0 && t <= Date.now() + 864e5 && Date.now() - t < 30 * 864e5; // a future, NaN or garbage date is not trusted
+  }
+} catch (_) {}
 
 async function billing() {
   if (!('getDigitalGoodsService' in window)) return null;
@@ -88,7 +95,10 @@ async function checkPro() {
     if (details[0]) proSku = details[0].itemId;
     const list = await svc.listPurchases();
     const owned = list.some((p) => PRO_IDS.includes(p.itemId));
-    if (owned || details.length) { setPro(owned); return owned; }
+    if (owned || details.length) {
+      try { if (owned) localStorage.setItem('pixelbatch-pro-ok', String(Date.now())); else localStorage.removeItem('pixelbatch-pro-ok'); } catch (_) {}
+      setPro(owned); return owned;
+    }
     setPro(isPro); // Store did not answer (offline): keep what we knew
     return isPro;
   } catch (_) { return isPro; }
